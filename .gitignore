@@ -68,6 +68,7 @@ dbt_project/logs/
 # dlt files
 .dlt/
 .dlt-profile
+.dlt/secrets.toml
 
 # Logs
 logs/
