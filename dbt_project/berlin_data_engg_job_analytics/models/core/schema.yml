@@ -1,0 +1,41 @@
+version: 2
+
+models:
+  - name: mart_company_analytics
+    description: >
+      Company-level aggregated metrics grouped by industry,
+      including job posting counts and list of companies per industry.
+    columns:
+      - name: company_industry
+        description: Industry category.
+      - name: company_count
+        description: Number of distinct companies in that industry.
+      - name: total_job_postings
+        description: Sum of job postings across all companies in the industry.
+      - name: companies
+        description: Array of distinct company names.
+
+  - name: mart_job_posting_trends
+    description: >
+      Monthly job posting trends including counts, days with data,
+      and month-over-month percent change in postings.
+    columns:
+      - name: month_start
+        description: First day of the month used for grouping.
+      - name: monthly_job_count
+        description: Total job postings in the month.
+      - name: days_with_data
+        description: Number of days in the month with job postings.
+      - name: prev_month_count
+        description: Job posting count from the previous month.
+      - name: mom_percent_change
+        description: Month-over-month percent change in job postings.
+
+  - name: mart_skills_analysis
+    description: >
+      Count of job postings in which each skill appears.
+    columns:
+      - name: skill
+        description: Name of the skill.
+      - name: jobs
+        description: Number of job postings requiring this skill.

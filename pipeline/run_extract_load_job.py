@@ -53,7 +53,7 @@ def linkedin_jobs(
     encoded_location = urllib.parse.quote_plus(f'"{location_filter}"')
 
     # Prepare the API endpoint with properly encoded query parameters
-    endpoint = f"/active-jb-7d?limit={limit}&offset={offset}&title_filter={encoded_title}&location_filter={encoded_location}"
+    endpoint = f"/active-jb-7d?limit={limit}&offset={offset}&title_filter={encoded_title}&location_filter={encoded_location}&include_ai=true"
 
     logger.info(f"Function linkedin_jobs logs - Fetching jobs for title '{title_filter}' in location '{location_filter}'")
 
@@ -75,7 +75,8 @@ def linkedin_jobs(
         'linkedin_org_employees', 'linkedin_org_url',
         'linkedin_org_industry', 'linkedin_org_followers',
         'locations_raw', 'employment_type', 'seniority',
-        'source', 'directapply', 'url'
+        'source', 'directapply', 'url', 'ai_experience_level', 
+        'ai_key_skills', 'ai_job_language', 'ai_work_arrangement'
     ]
 
     # Process each job listing individually and yield one at a time

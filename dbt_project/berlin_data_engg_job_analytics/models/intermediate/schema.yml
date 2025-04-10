@@ -1,0 +1,54 @@
+version: 2
+
+models:
+  - name: int_companies
+    description: >
+      Aggregated company-level data including total job postings,
+      first and latest job posting dates, and company metadata.
+    columns:
+      - name: company_name
+        description: Name of the company.
+      - name: company_industry
+        description: Industry category the company operates in.
+      - name: company_url
+        description: LinkedIn page URL for the company.
+      - name: company_size
+        description: Number of employees in the company.
+      - name: company_followers
+        description: Number of followers the company has on LinkedIn.
+      - name: job_posting_count
+        description: Total number of job postings from the company.
+      - name: first_job_posted_date
+        description: Date of the earliest job posting.
+      - name: latest_job_posted_date
+        description: Date of the latest job posting.
+
+  - name: int_job_postings_daily
+    description: >
+      Daily job posting metrics including total jobs posted and number
+      of unique companies posting each day.
+    columns:
+      - name: posting_date
+        description: Date of job posting.
+      - name: daily_job_count
+        description: Total job postings on that date.
+      - name: distinct_companies
+        description: Count of unique companies posting jobs on that date.
+
+  - name: int_job_skills
+    description: >
+      Job-level aggregation of required skills extracted using AI,
+      including skill counts and metadata about the job.
+    columns:
+      - name: job_id
+        description: Unique identifier for the job.
+      - name: job_title
+        description: Title of the job.
+      - name: experience_level
+        description: AI-inferred experience level.
+      - name: job_language
+        description: Language requirement for the job.
+      - name: skills_array
+        description: Array of distinct skills required for the job.
+      - name: skill_count
+        description: Number of unique skills associated with the job.

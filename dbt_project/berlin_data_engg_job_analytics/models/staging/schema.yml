@@ -1,0 +1,116 @@
+# This file contains the schema definitions for the staging models in the dbt project.
+# It defines the source data tables and their columns, as well as the models created from them.
+sources:
+  - name: staging
+    # This is the name of the project in BigQuery where the source data is stored
+    database: "{{ env_var('DBT_SOURCE_PROJECT', 'data-engg-job-analytics') }}"
+    # This is the name of the dataset in BigQuery where the source data is stored
+    schema: "{{ env_var('DBT_SOURCE_DATASET', 'raw_data') }}"
+    freshness:
+      warn_after: { count: 48, period: hour }
+      error_after: { count: 72, period: hour }
+      
+    tables:
+      - name: linkedin_jobs
+        description: Raw job postings data scraped from LinkedIn.
+        columns:
+          - name: id
+            description: Unique identifier for the job posting.
+          - name: date_posted
+            description: Timestamp of when the job was posted.
+          - name: organization
+            description: Name of the company posting the job.
+          - name: linkedin_org_employees
+            description: Estimated employee count for the organization.
+          - name: linkedin_org_industry
+            description: Industry category of the organization.
+          - name: linkedin_org_url
+            description: LinkedIn page URL for the organization.
+          - name: linkedin_org_followers
+            description: Number of followers the organization has on LinkedIn.
+          - name: employment_type
+            description: Type of employment (e.g., Full-time, Part-time).
+          - name: seniority
+            description: Required seniority level for the job.
+          - name: directapply
+            description: Whether the job supports LinkedIn's Direct Apply.
+          - name: url
+            description: Link to the job posting.
+          - name: location_city
+            description: City where the job is located.
+          - name: ai_experience_level
+            description: Experience level extracted using AI.
+          - name: ai_job_language
+            description: Primary language required for the job extracted using AI.
+          - name: ai_work_arrangement
+            description: Work setup (e.g., Remote, Hybrid) extracted using AI.
+          - name: _dlt_id
+            description: Internal ID used for data lineage tracking.
+
+      - name: linkedin_jobs__ai_key_skills
+        description: Extracted key skills per job using AI.
+        columns:
+          - name: value
+            description: Name of the skill.
+          - name: _dlt_parent_id
+            description: Links back to the job post in `linkedin_jobs`.
+        
+
+models:
+  - name: stg_linkedin_jobs
+    description: Cleaned and deduplicated job postings data from LinkedIn.
+    columns:
+      - name: job_id
+        description: Unique job identifier.
+        tests:
+          - unique
+          - not_null
+      - name: job_title
+        description: Title of the job.
+      - name: date_posted
+        description: Timestamp when the job was posted.
+      - name: company_name
+        description: Name of the company.
+      - name: company_size
+        description: Size of the company.
+      - name: company_industry
+        description: Industry the company operates in.
+      - name: company_url
+        description: LinkedIn page URL of the company.
+      - name: company_followers
+        description: Number of followers the company has on LinkedIn.
+      - name: employment_type
+        description: Full-time, part-time, etc.
+      - name: seniority_level
+        description: Seniority requirement for the job.
+      - name: direct_apply
+        description: Indicates if job uses LinkedIn Direct Apply.
+      - name: job_url
+        description: URL of the job listing.
+      - name: job_location
+        description: City or location of the job.
+      - name: experience_level
+        description: AI-detected experience level.
+      - name: job_language
+        description: Language requirement of the job.
+      - name: work_arrangement
+        description: Whether remote, hybrid, or onsite.
+      - name: _dlt_id
+        description: Internal lineage identifier used for linking with skills.
+        tests:
+          - not_null
+
+  - name: stg_linkedin_jobs_skills
+    description: Cleaned job skills data linked to job postings.
+    columns:
+      - name: skill
+        description: Skill required or mentioned in the job post.
+        tests:
+          - not_null
+      - name: _dlt_parent_id
+        description: Foreign key linking to job in stg_linkedin_jobs.
+        tests:
+          - not_null
+          - relationships:
+              to: ref('stg_linkedin_jobs')
+              field: _dlt_id
