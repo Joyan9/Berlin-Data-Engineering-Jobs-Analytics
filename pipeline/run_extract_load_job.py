@@ -1,5 +1,4 @@
 import dlt
-from dlt.destinations import filesystem
 import http.client
 import json
 import ast
@@ -8,8 +7,6 @@ import os
 import logging
 from typing import Dict, Iterator, Any
 from datetime import datetime
-
-
 
 # Set up logging
 logging.basicConfig(
