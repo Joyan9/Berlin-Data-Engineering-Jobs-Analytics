@@ -138,9 +138,10 @@ cd Berlin-Data-Engineering-Jobs-Analytics
 
 ---
 
-### 📦 2. Install Python Dependencies
+### 📦 2. Install Python Dependencies in Virtual Environment
 
 ```bash
+python -m venv venv
 pip install -r requirements.txt
 ```
 
