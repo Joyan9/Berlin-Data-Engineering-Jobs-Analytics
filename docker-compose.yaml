@@ -72,14 +72,24 @@ services:
       - -c
       - |
         mkdir -p /sources/logs /sources/dags /sources/plugins
-        chown -R "${AIRFLOW_UID}:0" /sources/{logs,dags,plugins}
+        chown -R "50000:0" /sources/{logs,dags,plugins}
         exec /entrypoint airflow version
     environment:
-      <<: *airflow-common
-      _AIRFLOW_DB_UPGRADE: 'true'
-      _AIRFLOW_WWW_USER_CREATE: 'true'
-      _AIRFLOW_WWW_USER_USERNAME: ${_AIRFLOW_WWW_USER_USERNAME:-airflow}
-      _AIRFLOW_WWW_USER_PASSWORD: ${_AIRFLOW_WWW_USER_PASSWORD:-airflow}
+      - AIRFLOW__CORE__EXECUTOR=LocalExecutor
+      - AIRFLOW__CORE__SQL_ALCHEMY_CONN=postgresql+psycopg2://airflow:airflow@postgres/airflow
+      - AIRFLOW__CORE__FERNET_KEY=''
+      - AIRFLOW__CORE__DAGS_ARE_PAUSED_AT_CREATION=true
+      - AIRFLOW__CORE__LOAD_EXAMPLES=false
+      - AIRFLOW__API__AUTH_BACKENDS=airflow.api.auth.backend.basic_auth
+      - AIRFLOW_HOME=/opt/airflow
+      - PROJECT_ROOT=/opt/airflow/berlin_jobs_analytics
+      - DBT_PROJECT_PATH=/opt/airflow/berlin_jobs_analytics/dbt_project/berlin_data_engg_job_analytics
+      - TERRAFORM_PATH=/opt/airflow/berlin_jobs_analytics/terraform
+      - TF_DATA_DIR=/opt/airflow/berlin_jobs_analytics/terraform/.terraform
+      - _AIRFLOW_DB_UPGRADE=true
+      - _AIRFLOW_WWW_USER_CREATE=true
+      - _AIRFLOW_WWW_USER_USERNAME=airflow
+      - _AIRFLOW_WWW_USER_PASSWORD=airflow
     user: "0:0"
     volumes:
       - ./:/sources
@@ -101,6 +111,7 @@ services:
       - ./terraform:/opt/airflow/berlin_jobs_analytics/terraform
       - terraform-data:/opt/airflow/berlin_jobs_analytics/terraform/.terraform
       - gcp-credentials:/opt/airflow/berlin_jobs_analytics/terraform/credentials
+      - ./terraform/credentials:/opt/airflow/berlin_jobs_analytics/terraform/credentials
 
 volumes:
   postgres-db-volume:

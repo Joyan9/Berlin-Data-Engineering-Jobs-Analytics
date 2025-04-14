@@ -21,7 +21,7 @@ The project aims to answer the following questions:
 
 ## 🧩 Project Architecture
 
-> *(Insert Architecture Diagram Here)*
+![Project Architecture](architecture.png)
 
 The pipeline involves API data extraction, cloud data storage, transformations using dbt, and orchestration with Apache Airflow.
 
@@ -117,191 +117,110 @@ Berlin-Data-Engineering-Jobs-Analytics/
 ```
 
 ---
-## Setup Guide
+## ⚙️ Setup Guide
 
-This guide will help you set up and run the Berlin Data Engineering Jobs Analytics project using Docker. The project consists of an ELT pipeline orchestrated by Airflow that extracts job data, loads it to BigQuery, and transforms it with dbt.
+### ✅ Prerequisites
 
-### Prerequisites
+- **GCP** project with:
+  - BigQuery enabled
+  - A service account (with BigQuery Admin role)
+  - Service account key (JSON)
+- **API Key** from [RapidAPI](https://rapidapi.com/fantastic-jobs-fantastic-jobs-default/api/linkedin-job-search-api)
 
-Before you begin, make sure you have:
+---
 
-- [Docker](https://docs.docker.com/get-docker/) and [Docker Compose](https://docs.docker.com/compose/install/) installed on your machine
-- A Google Cloud Platform (GCP) account with:
-  - A project with BigQuery enabled
-  - A service account with BigQuery Admin permissions
-  - A service account key file (JSON)
-- An API key for [LinkedIn Jobs API on RapidAPI](https://rapidapi.com/fantastic-jobs-fantastic-jobs-default/api/linkedin-job-search-api) (for data extraction)
-
-
-#### 1. Clone the Repository
+### 📦 1. Clone the Repository
 
 ```bash
 git clone https://github.com/Joyan9/Berlin-Data-Engineering-Jobs-Analytics.git
 cd Berlin-Data-Engineering-Jobs-Analytics
 ```
 
-#### 2. Configure Your Credentials
+---
 
-##### `dlt` Secrets
-
-Create a file `.dlt/secrets.toml` with your credentials:
-
-```toml
-[sources.linkedin_jobs_api]
-rapid_api_key = "YOUR_RAPID_API_KEY"
-
-[destination.bigquery]
-dataset_name = "raw_data"
-location = "YOUR_PREFERRED_LOCATION" # e.g., europe-west10
-
-[destination.bigquery.credentials]
-project_id = "YOUR_GCP_PROJECT_ID"
-private_key_id = "YOUR_PRIVATE_KEY_ID"
-private_key = "YOUR_PRIVATE_KEY" # Copy full key including "-----BEGIN PRIVATE KEY-----" and "-----END PRIVATE KEY-----"
-client_email = "YOUR_SERVICE_ACCOUNT_EMAIL"
-client_id = "YOUR_CLIENT_ID"
-auth_uri = "https://accounts.google.com/o/oauth2/auth"
-token_uri = "https://oauth2.googleapis.com/token"
-auth_provider_x509_cert_url = "https://www.googleapis.com/oauth2/v1/certs"
-client_x509_cert_url = "YOUR_CLIENT_X509_CERT_URL"
-universe_domain = "googleapis.com"
-```
-
-##### Terraform Credentials (Optional)
-
-If you plan to use Terraform to manage your GCP infrastructure:
-
-1. Create the directory `terraform/credentials/`
-2. Save your service account key as `terraform/credentials/service-account.json`
-
-#### 3. Update DAG Configuration
-
-In `airflow/dags/bigquery_dbt_pipeline.py`, update the email configuration:
-
-```python
-default_args = {
-    'email': ['your-email@example.com'],  # Change to your email
-    # Other settings...
-}
-```
-
-#### 4. Build and Start the Containers
-
-From the project root directory, run:
+### 📦 2. Install Python Dependencies
 
 ```bash
-docker-compose build
-docker-compose up -d
-```
-
-This will:
-- Build the Docker image with all required dependencies
-- Start the Airflow webserver, scheduler, and PostgreSQL database
-- Initialize the dbt documentation server
-- Start a Terraform service (if needed)
-
-#### 5. Access the Services
-
-- **Airflow UI**: http://localhost:8080 (default username/password: airflow/airflow)
-- **dbt Documentation**: http://localhost:8888
-
-#### 6. Initialize Infrastructure (Optional)
-
-If you want to use Terraform to set up your GCP resources:
-
-```bash
-docker-compose exec terraform bash
-cd $TERRAFORM_PATH
-terraform init
-terraform apply
+pip install -r requirements.txt
 ```
 
 ---
 
-## Customizing the Project
+### ⚙️ 3. Configure Environment Variables
 
-### Modifying the Schedule
+Set these environment variables:
 
-To change when the pipeline runs, edit the `schedule_interval` parameter in `airflow/dags/bigquery_dbt_pipeline.py`:
-
-```python
-dag = DAG(
-    'bigquery_dbt_pipeline',
-    default_args=default_args,
-    description='Weekly pipeline to load data into BigQuery and run dbt models',
-    schedule_interval='30 9 * * 1',  # Every Monday at 9:30 AM - modify as needed
-    catchup=False,
-    tags=['bigquery', 'dbt', 'jobs_data'],
-)
+```bash
+export AIRFLOW_HOME=/path/to/Berlin-Data-Engineering-Jobs-Analytics/airflow
+export PROJECT_ROOT=/path/to/Berlin-Data-Engineering-Jobs-Analytics
+export DBT_PROJECT_PATH=/path/to/Berlin-Data-Engineering-Jobs-Analytics/dbt_project/berlin_data_engg_job_analytics
+export GOOGLE_APPLICATION_CREDENTIALS=/path/to/service-account.json
+export LINKEDIN_JOBS_API_KEY="your-api-key"
+export BIGQUERY_RAW_DATASET=raw_data
+export BIGQUERY_LOCATION=europe-west10
+export BIGQUERY_PROJECT_ID=your-project-id
 ```
 
-### Changing Resource Allocation
+---
 
-If you need to adjust container resource limits, modify the `docker-compose.yml` file to add resource constraints:
+### 🏗 4. Create GCP Resources
+
+Provision resources using Terraform **or** manually create two BigQuery datasets:
+
+- `raw_data`
+- `transformed_data`
+
+---
+
+### 🛠 5. Configure dbt Profile
+
+Create the following `~/.dbt/profiles.yml`:
 
 ```yaml
-services:
-  airflow-webserver:
-    # Existing configuration...
-    deploy:
-      resources:
-        limits:
-          cpus: '1'
-          memory: 1G
+berlin_data_engg_job_analytics:
+  outputs:
+    dev:
+      type: bigquery
+      method: service-account
+      keyfile: /absolute/path/to/service-account.json
+      project: your-project-id
+      dataset: transformed_data
+      location: europe-west10
+      threads: 2
+      priority: interactive
+      job_retries: 1
+      job_execution_timeout_seconds: 300
+  target: dev
 ```
 
-## Troubleshooting
-
-### Container Startup Issues
-
-Check container logs:
+Test connection:
 
 ```bash
-docker-compose logs -f airflow-webserver
-docker-compose logs -f airflow-scheduler
-```
-
-### DAG Running Issues
-
-1. Check Airflow logs through the UI or:
-```bash
-docker-compose exec airflow-scheduler bash -c "cat /opt/airflow/logs/dag_id/task_id/execution_date/number.log"
-```
-
-2. Restart services if needed:
-```bash
-docker-compose restart airflow-webserver airflow-scheduler
-```
-
-### Data Pipeline Issues
-
-Run the pipeline manually to debug:
-
-```bash
-docker-compose exec airflow-scheduler bash
-cd $PROJECT_ROOT/pipeline
-python run_extract_load_job.py
+source ./venv/bin/activate
+cd $DBT_PROJECT_PATH
+dbt debug
 ```
 
 ---
 
-## Stopping the Project
+### ⏱ 6. Start Airflow and Trigger DAG
 
-To stop the project:
-
-```bash
-docker-compose down
-```
-
-To remove all data (including volumes):
+From the project root:
 
 ```bash
-docker-compose down -v
+source ./venv/bin/activate
+airflow webserver
+airflow scheduler
 ```
+
+Access the Airflow UI at [http://localhost:8080](http://localhost:8080)  
+Enable and manually trigger the `bigquery_dbt_pipeline` DAG.
+
+Check your BigQuery datasets for populated data.
 
 ---
 
 ## 👤 Author
 
 **Joyan Bhathena**  
-[LinkedIn](https://www.linkedin.com/in/joyanbhathena)
+🔗 [LinkedIn](https://www.linkedin.com/in/joyanbhathena)

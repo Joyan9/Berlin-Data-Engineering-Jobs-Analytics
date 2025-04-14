@@ -39,6 +39,7 @@ coverage.xml
 .DS_Store
 
 # Terraform files
+.credentials/
 .terraform/
 *.tfstate
 *.tfstate.backup

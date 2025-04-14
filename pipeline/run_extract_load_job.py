@@ -1,5 +1,5 @@
 import dlt
-import http.client
+import requests
 import json
 import ast
 import urllib.parse
@@ -7,6 +7,13 @@ import os
 import logging
 from typing import Dict, Iterator, Any
 from datetime import datetime
+import os
+
+# Set BigQuery destination configuration
+os.environ["DESTINATION__BIGQUERY__DATASET_NAME"] = os.environ.get("BIGQUERY_RAW_DATASET", "raw_data")
+os.environ["DESTINATION__BIGQUERY__LOCATION"] = os.environ.get("BIGQUERY_LOCATION", "europe-west10")
+
+# Make sure you set GOOGLE_APPLICATION_CREDENTIALS env variable to point towards your service account key file - dlt uses that
 
 # Set up logging
 logging.basicConfig(
@@ -25,48 +32,28 @@ def linkedin_jobs(
 ) -> Iterator[Dict[str, Any]]:
     """
     Resource that yields LinkedIn job listings one row at a time.
-
-    Args:
-        title_filter: Job title to search for
-        location_filter: Location to search in
-        limit: Maximum number of results to return
-        offset: Number of results to skip
     """
-    # Get API key from dlt secrets.toml
-    api_key = dlt.secrets['sources']['linkedin_jobs_api']['rapid_api_key']
+    api_key = os.getenv("LINKEDIN_JOBS_API_KEY").strip('“”"')
 
-    if not api_key:
-        raise ValueError("API key not found in environment variables")
-
-    # Set up the connection and headers for the API request
-    conn = http.client.HTTPSConnection("linkedin-job-search-api.p.rapidapi.com")
+    url = "https://linkedin-job-search-api.p.rapidapi.com/active-jb-7d"
+    querystring = {
+        "limit": "99",
+        "offset": "0",
+        "title_filter": f"{title_filter}",
+        "location_filter": f"{location_filter}",
+        "include_ai": "true"
+    }
     headers = {
         'x-rapidapi-key': api_key,
         'x-rapidapi-host': "linkedin-job-search-api.p.rapidapi.com"
     }
 
-    # Properly URL encode the parameters
-    encoded_title = urllib.parse.quote_plus(f'"{title_filter}"')
-    encoded_location = urllib.parse.quote_plus(f'"{location_filter}"')
+    response = requests.get(url, headers=headers, params=querystring)
 
-    # Prepare the API endpoint with properly encoded query parameters
-    endpoint = f"/active-jb-7d?limit={limit}&offset={offset}&title_filter={encoded_title}&location_filter={encoded_location}&include_ai=true"
+    job_data = response.json()
 
-    logger.info(f"Function linkedin_jobs logs - Fetching jobs for title '{title_filter}' in location '{location_filter}'")
+    logger.info(f"Retrieved {len(job_data)} job listings")
 
-    # Send the request to the API
-    conn.request("GET", endpoint, headers=headers)
-
-    # Get the response and read the data
-    res = conn.getresponse()
-    data = res.read()
-
-    # Load the JSON data into a Python dictionary
-    job_data = json.loads(data.decode("utf-8"))
-
-    logger.info(f"Function linkedin_jobs logs - Retrieved {len(job_data)} job listings")
-
-    # Define the columns we need
     needed_columns = [
         'id', 'title', 'date_posted', 'organization',
         'linkedin_org_employees', 'linkedin_org_url',
@@ -76,52 +63,74 @@ def linkedin_jobs(
         'ai_key_skills', 'ai_job_language', 'ai_work_arrangement'
     ]
 
-    # Process each job listing individually and yield one at a time
     for job in job_data:
-        # Create a row with only the needed columns
         job_row = {col: job.get(col) for col in needed_columns if col in job}
 
-        # Extract location city from locations_raw
+        # Process locations_raw
         if 'locations_raw' in job_row:
             try:
                 loc_raw = job_row['locations_raw']
-                data = ast.literal_eval(loc_raw) if isinstance(loc_raw, str) else loc_raw
+                if isinstance(loc_raw, str):
+                    # Use json.loads with UTF-8 encoding
+                    data = json.loads(loc_raw.encode('utf-8').decode('utf-8'))
+                else:
+                    data = loc_raw
+                
                 if isinstance(data, list) and len(data) > 0 and 'address' in data[0]:
                     job_row['location_city'] = data[0]['address'].get('addressLocality')
                 else:
                     job_row['location_city'] = None
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error in locations_raw: {e}")
+                job_row['location_city'] = None
             except Exception as e:
-                logger.warning(f"Function linkedin_jobs logs - Error parsing location data: {e}")
+                logger.warning(f"Error parsing location data: {e}")
                 job_row['location_city'] = None
 
-        # Extract employment type
+        # Process employment_type
         if 'employment_type' in job_row:
             try:
                 emp_type = job_row['employment_type']
-                data = ast.literal_eval(emp_type) if isinstance(emp_type, str) else emp_type
+                if isinstance(emp_type, str):
+                    # Use json.loads with UTF-8 encoding
+                    data = json.loads(emp_type.encode('utf-8').decode('utf-8'))
+                else:
+                    data = emp_type
+                
                 if isinstance(data, list) and len(data) > 0:
                     job_row['employment_type'] = data[0]
                 else:
                     job_row['employment_type'] = None
+            except json.JSONDecodeError as e:
+                logger.warning(f"JSON decode error in employment_type: {e}")
+                job_row['employment_type'] = None
             except Exception as e:
-                logger.warning(f"Function linkedin_jobs logs - Error parsing employment type: {e}")
+                logger.warning(f"Error parsing employment type: {e}")
                 job_row['employment_type'] = None
 
-        # Remove the locations_raw field as we've extracted what we need
-        if 'locations_raw' in job_row:
-            del job_row['locations_raw']
+        # Remove original raw fields
+        job_row.pop('locations_raw', None)
 
-        # Add extraction timestamp
-        job_row['extraction_timestamp'] = datetime.now().isoformat()
-        job_row['job_search_title'] = title_filter
-        job_row['job_search_location'] = location_filter
+        # Add metadata
+        job_row.update({
+            'extraction_timestamp': datetime.now().isoformat(),
+            'job_search_title': title_filter,
+            'job_search_location': location_filter
+        })
 
-        # Yield one job at a time
+        # Sanitize all string fields
+        for key in job_row:
+            if isinstance(job_row[key], str):
+                job_row[key] = job_row[key].encode('utf-8', 'ignore').decode('utf-8')
+
         yield job_row
+        logger.info(f"Yielded job listing with ID: {job_row['id']}")
 
 
 # Define the source that returns the resources
-@dlt.source
+# https://dlthub.com/docs/general-usage/source#reduce-the-nesting-level-of-generated-tables
+# will not generate nested tables and will not flatten dicts into columns at all
+@dlt.source(max_table_nesting=1) 
 def linkedin_jobs_source():
     """
     A dlt source that retrieves LinkedIn job data based on filters.

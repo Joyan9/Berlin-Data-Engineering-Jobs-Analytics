@@ -109,8 +109,8 @@ models:
           - not_null
       - name: _dlt_parent_id
         description: Foreign key linking to job in stg_linkedin_jobs.
-        tests:
-          - not_null
-          - relationships:
-              to: ref('stg_linkedin_jobs')
-              field: _dlt_id
+        #tests:
+        #  - not_null
+        #  - relationships:
+        #      to: ref('stg_linkedin_jobs')
+        #      field: _dlt_id

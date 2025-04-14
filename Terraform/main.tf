@@ -1,7 +1,7 @@
 provider "google" {
   project     = var.project_id
   region      = var.region
-  credentials = file(pathexpand(var.credentials_file))
+  credentials = var.credentials_file
 }
 
 # Create GCS bucket for data backups
